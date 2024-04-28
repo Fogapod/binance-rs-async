@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use futures::StreamExt;
+use futures::{SinkExt, StreamExt};
 use serde_json::from_str;
 use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite::handshake::client::Response;
@@ -160,7 +160,10 @@ impl<'a, WE: serde::de::DeserializeOwned> WebSockets<'a, WE> {
                         let event: WE = from_str(msg.as_str())?;
                         (self.handler)(event)?;
                     }
-                    Message::Ping(_) | Message::Pong(_) | Message::Binary(_) | Message::Frame(_) => {}
+                    Message::Ping(data) => {
+                        let _ = socket.send(Message::Pong(data)).await;
+                    }
+                    Message::Pong(_) | Message::Binary(_) | Message::Frame(_) => {}
                     Message::Close(e) => {
                         return Err(Error::Msg(format!("Disconnected {e:?}")));
                     }
